@@ -1,0 +1,16 @@
+# Placeholder Images
+
+This folder should contain placeholder images for fixtures without photos.
+
+Add a generic fixture placeholder:
+- `placeholder-fixture.png` - Generic fixture silhouette
+- `placeholder-spot.png` - Moving head spot placeholder  
+- `placeholder-wash.png` - Moving head wash placeholder
+- `placeholder-beam.png` - Moving head beam placeholder
+
+You can create these or use icon libraries like:
+- https://lucide.dev/ (we already use this for icons)
+- Free fixture silhouettes from manufacturers
+- Generic equipment icons
+
+Example sizes: 800x800px with transparent background

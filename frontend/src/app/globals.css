@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 229, 229, 229;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
+  --amber-accent: 245, 158, 11;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #000000;
+}
+
+@layer components {
+  /* Page wrapper for consistent backgrounds */
+  .page-wrapper {
+    @apply min-h-screen bg-black;
+  }
+  
+  /* Section with alternating background */
+  .section-gray {
+    @apply bg-dark-secondary -mx-4 px-4 py-20;
+  }
+  
+  /* Card styles */
+  .card-dark {
+    @apply bg-dark-secondary border border-gray-800 rounded-lg;
+  }
+  
+  .card-darker {
+    @apply bg-dark-tertiary border border-gray-800 rounded-lg;
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    @apply bg-amber-600 hover:bg-amber-700 text-black px-6 py-3 rounded-lg font-semibold transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors;
+  }
+  
+  /* Link styles */
+  .link-amber {
+    @apply text-amber-500 hover:text-amber-400 transition-colors;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Leaflet map fixes to prevent overlapping content */
+.leaflet-container {
+  position: relative;
+}
+
+/* Ensure sticky navigation stays above maps */
+nav {
+  z-index: 1000 !important;
+}

@@ -1,0 +1,26 @@
+node_modules/
+.env
+.env.local
+.DS_Store
+*.log
+dist/
+.next/
+out/
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vercel
+
+# History files (Local History extension)
+.history/
+
+# Database backups
+*.sql.backup
+*.dump
+
+# Temp files
+*.tmp
+.cache/
