@@ -24,3 +24,10 @@ coverage/
 # Temp files
 *.tmp
 .cache/
+
+# Private business strategy documents
+docs/private/
+business-strategy.md
+monetization-plan.md
+investor-deck.md
+revenue-projections.md

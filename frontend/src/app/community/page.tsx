@@ -109,7 +109,7 @@ export default function CommunityPage() {
                   <p className="text-gray-400 text-sm mb-3">
                     RiderReady is open to feedback. Report bugs, request features, or contribute code to our repository.
                   </p>
-                  <a href="#" className="text-purple-400 hover:text-purple-300 text-sm font-semibold flex items-center gap-1">
+                  <a href="https://github.com/heliosld/RiderReady" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm font-semibold flex items-center gap-1">
                     View on GitHub <Github className="w-3 h-3" />
                   </a>
                 </div>

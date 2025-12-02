@@ -24,9 +24,18 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
-  ShieldCheck
+  ShieldCheck,
+  Mail
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import IssueReportModal from '@/components/IssueReportModal';
+import CertifiedBadge from '@/components/CertifiedBadge';
+import UseCaseSelector from '@/components/UseCaseSelector';
+import UseCaseInsights from '@/components/UseCaseInsights';
+import ComparisonQuickAdd from '@/components/ComparisonQuickAdd';
+import EngagementBanner from '@/components/EngagementBanner';
+import DemoRequestModal from '@/components/DemoRequestModal';
+import SimilarFixtures from '@/components/SimilarFixtures';
 
 const VendorMap = dynamic(() => import('@/components/VendorMap'), {
   ssr: false,
@@ -39,6 +48,11 @@ export default function FixtureDetailPage() {
   const queryClient = useQueryClient();
   const [sessionId, setSessionId] = useState<string>('');
   const [useImperial, setUseImperial] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [selectedEndorsement, setSelectedEndorsement] = useState<{id: string, name: string} | null>(null);
+  const [selectedUseCase, setSelectedUseCase] = useState<string>('');
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [showEngagementBanner, setShowEngagementBanner] = useState(true);
 
   // Generate or retrieve session ID
   useEffect(() => {
@@ -70,18 +84,29 @@ export default function FixtureDetailPage() {
     queryFn: () => fixturesApi.getBySlug(slug),
   });
 
-  // Fetch all endorsement categories
-  const { data: allCategories } = useQuery({
-    queryKey: ['fixture-endorsement-categories', slug],
+  // Fetch fixture issues
+  const { data: fixtureIssues } = useQuery({
+    queryKey: ['fixture-issues', fixture?.id],
     queryFn: async () => {
-      const response = await axios.get(`http://localhost:3001/api/v1/fixtures/${slug}/endorsement-categories`);
-      return response.data;
+      const response = await axios.get(`http://localhost:3001/api/v1/endorsement-issues/fixture/${fixture?.id}`);
+      return response.data.issues;
     },
-    enabled: !!slug,
+    enabled: !!fixture?.id,
   });
 
+  // Check if fixture is certified
+  const { data: certifiedData } = useQuery({
+    queryKey: ['certified-fixtures'],
+    queryFn: async () => {
+      const response = await axios.get('http://localhost:3001/api/v1/endorsement-issues/certified');
+      return response.data.certified;
+    },
+  });
+
+  const isCertified = certifiedData?.some((cert: any) => cert.fixture_id === fixture?.id);
+
   const voteMutation = useMutation({
-    mutationFn: async ({ categorySlug, voteType }: { categorySlug: string; voteType: 'up' | 'down' }) => {
+    mutationFn: async ({ categorySlug, voteType, endorsementId }: { categorySlug: string; voteType: 'up' | 'down'; endorsementId?: string }) => {
       const response = await axios.post(
         `http://localhost:3001/api/v1/fixtures/${slug}/endorsements/${categorySlug}/vote`,
         { voteType, sessionId }
@@ -91,28 +116,69 @@ export default function FixtureDetailPage() {
     onSuccess: () => {
       // Refetch fixture data to get updated vote counts
       queryClient.invalidateQueries({ queryKey: ['fixture', slug] });
+      queryClient.invalidateQueries({ queryKey: ['fixture-issues', fixture?.id] });
     },
   });
 
-  const handleVote = (categorySlug: string, voteType: 'up' | 'down') => {
+  const handleVote = (endorsementId: string, categorySlug: string, categoryName: string, voteType: 'up' | 'down') => {
     if (!sessionId) return;
-    voteMutation.mutate({ categorySlug, voteType });
+    
+    // Vote immediately for both up and down votes
+    voteMutation.mutate({ categorySlug, voteType, endorsementId });
   };
 
-  // Merge categories with endorsement data
-  const endorsementsList = allCategories?.map((category: any) => {
-    const existingEndorsement = fixture?.endorsements?.find(
-      (e: any) => e.slug === category.slug
-    );
-    
-    return {
-      ...category,
-      id: existingEndorsement?.id || null,
-      upvotes: existingEndorsement?.upvotes || 0,
-      downvotes: existingEndorsement?.downvotes || 0,
-      net_score: existingEndorsement?.net_score || 0,
-    };
-  }) || [];
+  const handleIssueReported = () => {
+    // After issue is reported, complete the downvote
+    if (selectedEndorsement) {
+      const endorsement = fixture?.endorsements?.find((e: any) => e.id === selectedEndorsement.id);
+      if (endorsement) {
+        voteMutation.mutate({ categorySlug: endorsement.slug, voteType: 'down', endorsementId: selectedEndorsement.id });
+      }
+    }
+  };
+
+  const handleUseCaseSelect = async (useCase: string, userRole?: string) => {
+    setSelectedUseCase(useCase);
+    if (fixture?.id && sessionId) {
+      try {
+        await axios.post(`http://localhost:3001/api/v1/tracking/fixtures/${fixture.id}/use-case`, {
+          sessionId,
+          useCase,
+          userRole
+        });
+      } catch (error) {
+        console.error('Error tracking use case:', error);
+      }
+    }
+  };
+
+  const handleComparisonAdd = async () => {
+    if (fixture?.id && sessionId) {
+      try {
+        const comparison = JSON.parse(localStorage.getItem('riderready-comparison') || '[]');
+        if (comparison.length >= 2) {
+          await axios.post(`http://localhost:3001/api/v1/tracking/comparisons`, {
+            sessionId,
+            fixtureIds: comparison.map((item: any) => item.id)
+          });
+        }
+      } catch (error) {
+        console.error('Error tracking comparison:', error);
+      }
+    }
+  };
+
+  const handleEngagementClick = () => {
+    setShowEngagementBanner(false);
+    // Scroll to ratings section
+    const ratingsSection = document.querySelector('#performance-ratings');
+    if (ratingsSection) {
+      ratingsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Use endorsements directly from the fixture data
+  const endorsementsList = fixture?.endorsements || [];
 
   if (isLoading) {
     return (
@@ -139,9 +205,9 @@ export default function FixtureDetailPage() {
 
   return (
     <div className="page-wrapper">
-    <div className="container mx-auto px-4 py-8">
-      {/* Back Button */}
-      <Link 
+      <div className="container mx-auto px-4 py-8">
+        {/* Back Button */}
+        <Link 
         href="/fixtures"
         className="inline-flex items-center gap-2 text-amber-500 hover:text-amber-400 mb-6"
       >
@@ -330,134 +396,35 @@ export default function FixtureDetailPage() {
         </div>
       </div>
 
-      {/* Endorsements */}
-      {endorsementsList && endorsementsList.length > 0 && (
-        <div className="card-dark p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-amber-500" />
-            Community Feedback
-          </h2>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-            {endorsementsList
-              .sort((a: any, b: any) => {
-                // Sort by net score (highest first)
-                return b.net_score - a.net_score;
-              })
-              .map((endorsement: any) => {
-                const hasVotes = endorsement.net_score !== 0;
-                const isConfirmed = endorsement.net_score > 0;
-                
-                const borderColor = !hasVotes ? 'border-gray-700' : (isConfirmed ? 'border-green-800' : 'border-red-800');
-                const bgColor = !hasVotes ? 'bg-dark-tertiary' : (isConfirmed ? 'bg-green-950/30' : 'bg-red-950/30');
-                const titleColor = !hasVotes ? 'text-gray-300' : (isConfirmed ? 'text-green-400' : 'text-red-400');
-                const scoreColor = !hasVotes ? 'text-gray-500' : (isConfirmed ? 'text-green-400' : 'text-red-400');
-                
-                const totalVotes = endorsement.upvotes + endorsement.downvotes;
-                const netScore = endorsement.net_score;
-                const maxScore = Math.max(Math.abs(netScore), 10); // Minimum scale of 10
-                const scorePercent = totalVotes > 0 ? Math.min((Math.abs(netScore) / maxScore) * 50, 50) : 0;
-                const isPositive = netScore > 0;
-                
-                return (
-                  <div 
-                    key={endorsement.slug}
-                    className={`border rounded-lg p-3 ${borderColor} ${bgColor}`}
-                  >
-                    <div className="flex gap-2">
-                      {/* Vote buttons stacked on left */}
-                      <div className="flex flex-col gap-1">
-                        <button
-                          onClick={() => handleVote(endorsement.slug, 'up')}
-                          disabled={voteMutation.isPending}
-                          className="flex flex-col items-center justify-center px-1.5 py-0.5 bg-green-900/30 hover:bg-green-900/50 border border-green-800 rounded transition-colors disabled:opacity-50 min-w-[40px]"
-                          title="Agree - this is a strength"
-                        >
-                          <ThumbsUp className="w-3 h-3 text-green-400" />
-                          <span className="text-[10px] font-semibold text-green-400 mt-0.5">{endorsement.upvotes}</span>
-                        </button>
-                        <button
-                          onClick={() => handleVote(endorsement.slug, 'down')}
-                          disabled={voteMutation.isPending}
-                          className="flex flex-col items-center justify-center px-1.5 py-0.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded transition-colors disabled:opacity-50 min-w-[40px]"
-                          title="Disagree - not a strength"
-                        >
-                          <ThumbsDown className="w-3 h-3 text-red-400" />
-                          <span className="text-[10px] font-semibold text-red-400 mt-0.5">{endorsement.downvotes}</span>
-                        </button>
-                      </div>
-                      
-                      {/* Content on right */}
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-1.5">
-                          <div className="flex-1">
-                            <h4 className={`font-semibold text-sm mb-0.5 ${titleColor}`}>
-                              {endorsement.name}
-                            </h4>
-                            <p className="text-[11px] text-gray-400 leading-tight">{endorsement.description}</p>
-                          </div>
-                          <div className="flex flex-col items-end ml-3">
-                            <div className="flex items-center gap-1">
-                              {isConfirmed && hasVotes && <ThumbsUp className="w-3 h-3 text-green-400" />}
-                              {!isConfirmed && hasVotes && <ThumbsDown className="w-3 h-3 text-red-400" />}
-                              <span className={`text-lg font-bold ${scoreColor}`}>
-                                {endorsement.net_score > 0 ? '+' : ''}{endorsement.net_score}
-                              </span>
-                            </div>
-                            {totalVotes > 0 && (
-                              <span className="text-[10px] text-gray-500">{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Centered Scale Bar */}
-                        <div className="mb-1.5">
-                          <div className="relative h-6 rounded-full overflow-hidden bg-gray-950 border border-gray-700">
-                            {/* Center line */}
-                            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-600 z-10"></div>
-                            
-                            {/* Bar extending from center (only if there are votes) */}
-                            {totalVotes > 0 && (
-                              <div 
-                                className={`absolute top-0 bottom-0 transition-all duration-300 ${
-                                  isPositive 
-                                    ? 'left-1/2 bg-gradient-to-r from-green-600 to-green-500' 
-                                    : 'right-1/2 bg-gradient-to-l from-red-600 to-red-500'
-                                } flex items-center ${
-                                  isPositive ? 'justify-end pr-1.5' : 'justify-start pl-1.5'
-                                }`}
-                                style={{ width: `${scorePercent}%` }}
-                              >
-                                {scorePercent > 15 && (
-                                  <span className="text-[10px] font-bold text-white">
-                                    {isPositive ? '+' : ''}{netScore}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            
-                            {/* Neutral indicator */}
-                            {totalVotes === 0 && (
-                              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-medium">
-                                No votes yet
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+      {/* Use Case Selector */}
+      <UseCaseSelector 
+        onSelect={handleUseCaseSelect}
+        currentSelection={selectedUseCase}
+      />
 
-          <div className="mt-4 p-3 bg-dark-tertiary rounded-lg border border-gray-800">
-            <p className="text-xs text-gray-400 text-center">
-              💡 Community endorsements reflect real-world experiences from LD's, PM's, and tour staff.
-            </p>
-          </div>
-        </div>
+      {/* Use Case Insights - shown after selection */}
+      {selectedUseCase && (
+        <UseCaseInsights 
+          useCase={selectedUseCase}
+          fixture={fixture}
+        />
       )}
+
+      {/* Comparison & Demo Request Actions */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-6">
+        <ComparisonQuickAdd 
+          fixtureId={fixture.id}
+          fixtureName={fixture.name}
+          onAdd={handleComparisonAdd}
+        />
+        <button
+          onClick={() => setShowDemoModal(true)}
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-semibold transition-all"
+        >
+          <Mail className="w-5 h-5" />
+          <span>Request Demo from {fixture.manufacturer.name}</span>
+        </button>
+      </div>
 
       {/* Detailed Specifications */}
       <div className="grid md:grid-cols-2 gap-6">
@@ -699,7 +666,201 @@ export default function FixtureDetailPage() {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Performance Ratings */}
+      <div id="performance-ratings" className="card-dark p-6 mt-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <CheckCircle className="w-6 h-6 text-amber-500" />
+            Performance Ratings
+          </h2>
+          {isCertified && <CertifiedBadge size="md" showLabel />}
+        </div>
+
+        {endorsementsList && endorsementsList.length > 0 ? (
+          (() => {
+            // Group categories by feature_group
+            const grouped = endorsementsList.reduce((acc: any, endorsement: any) => {
+              const group = endorsement.feature_group || 'General';
+              if (!acc[group]) acc[group] = [];
+              acc[group].push(endorsement);
+              return acc;
+            }, {});
+
+            return (
+              <div className="space-y-8">
+                {Object.entries(grouped).map(([groupName, groupEndorsements]: [string, any]) => (
+                  <div key={groupName}>
+                    {(() => {
+                      // Calculate if this group has 95%+ approval
+                      const groupTotalVotes = groupEndorsements.reduce((sum: number, e: any) => sum + e.upvotes + e.downvotes, 0);
+                      const groupUpvotes = groupEndorsements.reduce((sum: number, e: any) => sum + e.upvotes, 0);
+                      const groupApproval = groupTotalVotes > 0 ? Math.round((groupUpvotes / groupTotalVotes) * 100) : 0;
+                      const isVerified = groupApproval >= 95 && groupTotalVotes >= 10;
+                      
+                      return (
+                        <h3 className="text-lg font-semibold text-amber-400 mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
+                          {groupName}
+                          {isVerified && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-900/40 to-green-900/40 border border-emerald-500/50 rounded-full text-xs font-semibold text-emerald-300">
+                              <ShieldCheck className="w-3 h-3" />
+                              Verified Excellence
+                            </span>
+                          )}
+                        </h3>
+                      );
+                    })()}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {groupEndorsements.map((endorsement: any) => {
+                        const totalVotes = endorsement.upvotes + endorsement.downvotes;
+                        const upvotePercent = totalVotes > 0 
+                          ? Math.round((endorsement.upvotes / totalVotes) * 100) 
+                          : 0;
+                        const hasVotes = totalVotes > 0;
+                        
+                        // Find the top issue for this category
+                        const topIssue = fixtureIssues?.find(
+                          (issue: any) => issue.category_slug === endorsement.slug
+                        );
+
+                        return (
+                          <div 
+                            key={endorsement.slug}
+                            className={`bg-dark-secondary border rounded-lg p-4 transition-all ${
+                              hasVotes 
+                                ? 'border-gray-700 hover:border-amber-600' 
+                                : 'border-gray-800 border-dashed opacity-50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-200 mb-1">
+                                  {endorsement.name}
+                                </h3>
+                                {endorsement.description && (
+                                  <p className="text-xs text-gray-500 mb-2">
+                                    {endorsement.description}
+                                  </p>
+                                )}
+                                {hasVotes && (
+                                  <div className="text-sm">
+                                    <span className={`font-bold ${
+                                      upvotePercent >= 95 ? 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-green-300 to-emerald-300 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' :
+                                      upvotePercent >= 75 ? 'text-green-400' :
+                                      upvotePercent >= 60 ? 'text-amber-400' :
+                                      'text-red-400'
+                                    }`}>{upvotePercent}%</span>
+                                    <span className="text-gray-400"> positive ({totalVotes} vote{totalVotes !== 1 ? 's' : ''})</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Vote buttons */}
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => handleVote(endorsement.id, endorsement.slug, endorsement.name, 'up')}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                  endorsement.upvotes > 0
+                                    ? 'bg-green-900/30 text-green-400 border border-green-700'
+                                    : 'bg-dark-tertiary text-gray-400 border border-gray-700 hover:border-green-600 hover:text-green-400'
+                                }`}
+                                disabled={voteMutation.isPending}
+                              >
+                                <ThumbsUp className="w-4 h-4" />
+                                <span className="text-sm font-medium">{endorsement.upvotes}</span>
+                              </button>
+                              <button
+                                onClick={() => handleVote(endorsement.id, endorsement.slug, endorsement.name, 'down')}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                  endorsement.downvotes > 0
+                                    ? 'bg-red-900/30 text-red-400 border border-red-700'
+                                    : 'bg-dark-tertiary text-gray-400 border border-gray-700 hover:border-red-600 hover:text-red-400'
+                                }`}
+                                disabled={voteMutation.isPending}
+                              >
+                                <ThumbsDown className="w-4 h-4" />
+                                <span className="text-sm font-medium">{endorsement.downvotes}</span>
+                              </button>
+                            </div>
+
+                            {/* Show top issue if downvotes exist */}
+                            {topIssue && topIssue.total_reports > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-700">
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-400 mb-1">Most reported issue:</p>
+                                    <p className="text-sm text-amber-400 font-medium">
+                                      {topIssue.tag_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {topIssue.total_reports} report{topIssue.total_reports !== 1 ? 's' : ''} 
+                                      ({topIssue.percentage}% of downvotes)
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()
+        ) : (
+          <p className="text-gray-400 text-center py-8">
+            No performance ratings available for this fixture yet.
+          </p>
+        )}
+      </div>
+
+      {/* Similar Fixtures */}
+      <SimilarFixtures 
+        fixtureId={fixture.id}
+        fixtureName={fixture.name}
+        limit={6}
+      />
+
+        {/* Issue Report Modal */}
+        {showIssueModal && selectedEndorsement && (
+          <IssueReportModal
+            isOpen={showIssueModal}
+            onClose={() => {
+              setShowIssueModal(false);
+              setSelectedEndorsement(null);
+            }}
+            endorsementId={selectedEndorsement.id}
+            categoryName={selectedEndorsement.name}
+            onReportSuccess={handleIssueReported}
+          />
+        )}
+
+        {/* Demo Request Modal */}
+        <DemoRequestModal
+          fixtureId={fixture.id}
+          fixtureName={fixture.name}
+          manufacturerName={fixture.manufacturer.name}
+          manufacturerId={fixture.manufacturer.id}
+          vendors={fixture.vendors || []}
+          distributors={fixture.distributors || []}
+          isOpen={showDemoModal}
+          onClose={() => setShowDemoModal(false)}
+          sessionId={sessionId}
+          useCase={selectedUseCase}
+        />
+
+        {/* Engagement Banner */}
+        {showEngagementBanner && (
+          <EngagementBanner
+            fixtureName={fixture.name}
+            onEngaged={handleEngagementClick}
+          />
+        )}
+      </div>
     </div>
   );
 }

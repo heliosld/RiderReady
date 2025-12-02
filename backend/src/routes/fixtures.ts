@@ -95,7 +95,26 @@ router.get('/', async (req: Request, res: Response) => {
             'name', fc.name,
             'slug', fc.slug
           )
-        ) as fixture_type
+        ) as fixture_type,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', fe.id,
+                'upvotes', fe.upvotes,
+                'downvotes', fe.downvotes,
+                'net_score', fe.net_score,
+                'slug', ec.slug,
+                'name', ec.name
+              )
+              ORDER BY fe.net_score DESC
+            )
+            FROM fixture_endorsements fe
+            INNER JOIN fixture_endorsement_categories ec ON fe.category_id = ec.id
+            WHERE fe.fixture_id = f.id
+          ),
+          '[]'
+        ) as endorsements
       FROM fixtures f
       LEFT JOIN manufacturers m ON f.manufacturer_id = m.id
       LEFT JOIN fixture_types ft ON f.fixture_type_id = ft.id
@@ -286,11 +305,13 @@ router.get('/slug/:slug', async (req: Request, res: Response) => {
         ec.slug,
         ec.description,
         ec.icon,
-        ec.is_positive
+        ec.is_positive,
+        ec.feature_group,
+        ec.display_order
       FROM fixture_endorsements fe
       INNER JOIN fixture_endorsement_categories ec ON fe.category_id = ec.id
       WHERE fe.fixture_id = $1
-      ORDER BY fe.net_score DESC, ec.is_positive DESC, ec.name
+      ORDER BY ec.display_order, ec.name
     `, [fixture.id]);
 
     return res.json({ ...fixture, endorsements });
@@ -359,13 +380,68 @@ router.post('/:slug/endorsements/:categorySlug/vote', async (req: Request, res: 
   }
 });
 
-// GET /fixtures/:slug/endorsement-categories
+// GET /fixtures/:slug/endorsement-categories - Get categories applicable to this fixture
 router.get('/:slug/endorsement-categories', async (req: Request, res: Response) => {
   try {
+    const { slug } = req.params;
+
+    // Get fixture details to determine which categories apply
+    const fixture = await db.oneOrNone(`
+      SELECT 
+        color_mixing_type,
+        has_gobo_wheel,
+        has_prism,
+        has_zoom,
+        has_frost,
+        has_animation_wheel
+      FROM fixtures
+      WHERE slug = $1
+    `, [slug]);
+
+    if (!fixture) {
+      return res.status(404).json({ error: 'Fixture not found' });
+    }
+
+    // Determine if fixture has color mixing (any type: CMY, RGB, RGBW, RGBA, etc.)
+    const hasColorMixing = fixture.color_mixing_type && 
+                          fixture.color_mixing_type.toLowerCase() !== 'none' &&
+                          fixture.color_mixing_type.toLowerCase() !== 'fixed';
+
+    // Build WHERE clause based on fixture features
+    let whereConditions = ['applies_to_all = true'];
+    
+    if (hasColorMixing) {
+      whereConditions.push('requires_color_mixing = true');
+    }
+    if (fixture.has_gobo_wheel) {
+      whereConditions.push('requires_gobo_wheel = true');
+    }
+    if (fixture.has_prism) {
+      whereConditions.push('requires_prism = true');
+    }
+    if (fixture.has_zoom) {
+      whereConditions.push('requires_zoom = true');
+    }
+    if (fixture.has_frost) {
+      whereConditions.push('requires_frost = true');
+    }
+
+    const whereClause = whereConditions.join(' OR ');
+
+    // Get applicable categories
     const categories = await db.any(`
-      SELECT id, name, slug, description, icon, is_positive
+      SELECT 
+        id, 
+        name, 
+        slug, 
+        description, 
+        icon, 
+        is_positive,
+        feature_group,
+        display_order
       FROM fixture_endorsement_categories
-      ORDER BY is_positive DESC, name
+      WHERE ${whereClause}
+      ORDER BY display_order, name
     `);
 
     return res.json(categories);

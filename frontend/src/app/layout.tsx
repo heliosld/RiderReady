@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { Providers } from '@/components/Providers'
 import { Navigation } from '@/components/Navigation'
 import { DemoNotice } from '@/components/DemoNotice'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -22,13 +23,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-black text-gray-200`}>
-        <Providers>
-          <DemoNotice />
-          <div className="min-h-screen flex flex-col">
-            <Navigation />
-            <main className="flex-1">
-              {children}
-            </main>
+        <AuthProvider>
+          <Providers>
+            <DemoNotice />
+            <div className="min-h-screen flex flex-col">
+              <Navigation />
+              <main className="flex-1">
+                {children}
+              </main>
             <footer className="bg-black border-t border-gray-800 text-gray-400 py-8 mt-auto">
               <div className="container mx-auto px-4">
                 <div className="flex flex-col items-center gap-4">
@@ -42,6 +44,7 @@ export default function RootLayout({
             </footer>
           </div>
         </Providers>
+        </AuthProvider>
       </body>
     </html>
   )

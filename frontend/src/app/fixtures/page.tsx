@@ -3,11 +3,15 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { fixturesApi, manufacturersApi, type Fixture } from '@/lib/api';
 import { useState, useEffect, useRef } from 'react';
-import { Search, Filter, X, Zap, Lightbulb, Palette, Eye } from 'lucide-react';
+import { Search, Filter, X, Zap, Lightbulb, Palette, Eye, ThumbsUp, ThumbsDown, GitCompare } from 'lucide-react';
 import Link from 'next/link';
 import { ImageWithFallback } from '@/components/ImageWithFallback';
+import CertifiedBadge from '@/components/CertifiedBadge';
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
 
 export default function FixturesPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [manufacturerId, setManufacturerId] = useState('');
   const [fixtureType, setFixtureType] = useState('');
@@ -22,6 +26,7 @@ export default function FixturesPage() {
   const [hasIris, setHasIris] = useState<boolean | null>(null);
   const [sortBy, setSortBy] = useState('name-asc');
   const [useImperial, setUseImperial] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +86,15 @@ export default function FixturesPage() {
   const { data: manufacturers } = useQuery({
     queryKey: ['manufacturers'],
     queryFn: manufacturersApi.getAll,
+  });
+
+  // Fetch certified fixtures
+  const { data: certifiedFixtures } = useQuery({
+    queryKey: ['certified-fixtures'],
+    queryFn: async () => {
+      const response = await axios.get('http://localhost:3001/api/v1/endorsement-issues/certified');
+      return response.data.certified;
+    },
   });
 
   // Flatten all pages of fixtures
@@ -147,6 +161,34 @@ export default function FixturesPage() {
   // Sort fixtures
   const sortedFixtures = [...filteredFixtures].sort((a, b) => {
     switch (sortBy) {
+      case 'rating-desc': {
+        // Calculate approval ratings
+        const aUpvotes = a.endorsements?.reduce((sum: number, e: any) => sum + (e.upvotes || 0), 0) || 0;
+        const aDownvotes = a.endorsements?.reduce((sum: number, e: any) => sum + (e.downvotes || 0), 0) || 0;
+        const aTotalVotes = aUpvotes + aDownvotes;
+        const aRating = aTotalVotes > 0 ? (aUpvotes / aTotalVotes) * 100 : -1;
+        
+        const bUpvotes = b.endorsements?.reduce((sum: number, e: any) => sum + (e.upvotes || 0), 0) || 0;
+        const bDownvotes = b.endorsements?.reduce((sum: number, e: any) => sum + (e.downvotes || 0), 0) || 0;
+        const bTotalVotes = bUpvotes + bDownvotes;
+        const bRating = bTotalVotes > 0 ? (bUpvotes / bTotalVotes) * 100 : -1;
+        
+        return bRating - aRating; // Higher rating first
+      }
+      case 'rating-asc': {
+        // Calculate approval ratings
+        const aUpvotes = a.endorsements?.reduce((sum: number, e: any) => sum + (e.upvotes || 0), 0) || 0;
+        const aDownvotes = a.endorsements?.reduce((sum: number, e: any) => sum + (e.downvotes || 0), 0) || 0;
+        const aTotalVotes = aUpvotes + aDownvotes;
+        const aRating = aTotalVotes > 0 ? (aUpvotes / aTotalVotes) * 100 : 101; // Put unrated at end
+        
+        const bUpvotes = b.endorsements?.reduce((sum: number, e: any) => sum + (e.upvotes || 0), 0) || 0;
+        const bDownvotes = b.endorsements?.reduce((sum: number, e: any) => sum + (e.downvotes || 0), 0) || 0;
+        const bTotalVotes = bUpvotes + bDownvotes;
+        const bRating = bTotalVotes > 0 ? (bUpvotes / bTotalVotes) * 100 : 101; // Put unrated at end
+        
+        return aRating - bRating; // Lower rating first
+      }
       case 'name-asc':
         return a.name.localeCompare(b.name);
       case 'name-desc':
@@ -197,10 +239,25 @@ export default function FixturesPage() {
     <div className="page-wrapper">
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-white">
-          Automated Lighting Fixtures
-        </h1>
+        <div>
+          <h1 className="text-4xl font-bold text-white">
+            Automated Lighting Fixtures
+          </h1>
+          <Link href="/hero" className="inline-flex items-center gap-2 mt-2 text-amber-500 hover:text-amber-400 text-sm font-medium transition-colors">
+            <span>★</span>
+            View Best-in-Class Fixtures
+          </Link>
+        </div>
         <div className="flex items-center gap-3">
+          {selectedForCompare.length > 0 && (
+            <button
+              onClick={() => router.push(`/fixtures/compare?fixtures=${selectedForCompare.join(',')}`)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <GitCompare className="w-4 h-4" />
+              Compare ({selectedForCompare.length})
+            </button>
+          )}
           <button
             onClick={toggleUnits}
             className="px-3 py-2 bg-dark-secondary border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-800 transition-colors"
@@ -214,6 +271,8 @@ export default function FixturesPage() {
             onChange={(e) => setSortBy(e.target.value)}
             className="border border-gray-700 rounded-lg px-4 py-2 bg-dark-secondary text-gray-200 text-sm min-w-[200px]"
           >
+            <option value="rating-desc">Rating (Highest First)</option>
+            <option value="rating-asc">Rating (Lowest First)</option>
             <option value="name-asc">Name (A-Z)</option>
             <option value="name-desc">Name (Z-A)</option>
             <option value="manufacturer-asc">Manufacturer (A-Z)</option>
@@ -544,27 +603,86 @@ export default function FixturesPage() {
                 </p>
               </div>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
-                {sortedFixtures.map((fixture: Fixture) => (
-              <Link
+                {sortedFixtures.map((fixture: Fixture) => {
+                  const isCertified = certifiedFixtures?.some((cert: any) => cert.fixture_id === fixture.id);
+                  
+                  // Calculate overall endorsement percentage
+                  const totalUpvotes = fixture.endorsements?.reduce((sum: number, e: any) => sum + (e.upvotes || 0), 0) || 0;
+                  const totalDownvotes = fixture.endorsements?.reduce((sum: number, e: any) => sum + (e.downvotes || 0), 0) || 0;
+                  const totalVotes = totalUpvotes + totalDownvotes;
+                  const approvalPercent = totalVotes > 0 ? Math.round((totalUpvotes / totalVotes) * 100) : null;
+
+                  const isSelected = selectedForCompare.includes(fixture.id);
+                  
+                  return (
+              <div
                 key={fixture.id}
-                href={`/fixtures/${fixture.slug}`}
-                className="card-dark hover:border-amber-600 transition-all overflow-hidden flex flex-col group"
+                className="card-dark hover:border-amber-600 transition-all overflow-hidden flex flex-col group relative"
               >
-                <div className="aspect-[3/4] bg-white flex items-center justify-center overflow-hidden p-4">
-                  <ImageWithFallback
-                    src={fixture.primary_image_url}
-                    alt={fixture.name}
-                    className="w-full h-full object-contain"
-                    containerClassName="w-full h-full"
+                {/* Compare Checkbox */}
+                <div className="absolute top-2 left-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      if (isSelected) {
+                        setSelectedForCompare(selectedForCompare.filter(id => id !== fixture.id));
+                      } else {
+                        if (selectedForCompare.length < 5) {
+                          setSelectedForCompare([...selectedForCompare, fixture.id]);
+                        }
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
+                    title="Select for comparison"
                   />
                 </div>
-                <div className="p-3 flex-1 flex flex-col">
-                  <p className="text-xs text-amber-500 font-medium mb-1">
-                    {fixture.manufacturer.name}
-                  </p>
-                  <h3 className="font-bold text-sm mb-2 text-white line-clamp-2 flex-1 group-hover:text-amber-400 transition-colors">
-                    {fixture.name}
-                  </h3>
+                
+                <Link href={`/fixtures/${fixture.slug}`} className="flex flex-col flex-1">
+                  <div className="aspect-[3/4] bg-white flex items-center justify-center overflow-hidden p-4 relative">
+                    {isCertified && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <CertifiedBadge size="sm" />
+                      </div>
+                    )}
+                    <ImageWithFallback
+                      src={fixture.primary_image_url}
+                      alt={fixture.name}
+                      className="w-full h-full object-contain"
+                      containerClassName="w-full h-full"
+                    />
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <p className="text-xs text-amber-500 font-medium mb-1">
+                      {fixture.manufacturer.name}
+                    </p>
+                    <h3 className="font-bold text-sm mb-2 text-white line-clamp-2 flex-1 group-hover:text-amber-400 transition-colors">
+                      {fixture.name}
+                    </h3>
+                  
+                  {/* Endorsement Rating */}
+                  {approvalPercent !== null && (
+                    <div className="flex items-center gap-1 mb-2 text-xs">
+                      <ThumbsUp className={`w-3 h-3 ${
+                        approvalPercent >= 95 ? 'text-green-300' :
+                        approvalPercent >= 75 ? 'text-green-500' :
+                        approvalPercent >= 60 ? 'text-amber-500' :
+                        'text-red-500'
+                      }`} />
+                      <span className={`font-bold ${
+                        approvalPercent >= 95 ? 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-green-300 to-emerald-300 drop-shadow-[0_0_6px_rgba(34,197,94,0.6)]' :
+                        approvalPercent >= 75 ? 'text-green-400' :
+                        approvalPercent >= 60 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {approvalPercent}%
+                      </span>
+                      <span className="text-gray-500">({totalVotes})</span>
+                    </div>
+                  )}
+                  
                   <div className="flex flex-col gap-1 text-xs text-gray-400">
                     {fixture.weight_kg && (
                       <span>
@@ -580,7 +698,9 @@ export default function FixturesPage() {
                   </div>
                 </div>
               </Link>
-                ))}
+              </div>
+                  );
+                })}
               </div>
 
               {/* Infinite scroll trigger */}

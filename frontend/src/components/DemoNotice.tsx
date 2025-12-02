@@ -29,7 +29,7 @@ export function DemoNotice() {
   if (!isVisible || hasSeenNotice) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="bg-dark-secondary border-2 border-amber-600 rounded-lg shadow-2xl max-w-md mx-4 p-6">
         <div className="flex items-start gap-4">
           <AlertTriangle className="w-8 h-8 text-amber-500 flex-shrink-0 mt-1" />

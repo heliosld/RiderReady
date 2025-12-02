@@ -10,6 +10,11 @@ import manufacturersRouter from './routes/manufacturers';
 import distributorsRouter from './routes/distributors';
 import searchRouter from './routes/search';
 import fixtureCategoriesRouter from './routes/fixtureCategories';
+import endorsementIssuesRouter from './routes/endorsement-issues';
+import authRouter from './routes/auth';
+import vendorInventoryRouter from './routes/vendor-inventory';
+import interactiveTrackingRouter from './routes/interactive-tracking';
+import similarFixturesRouter from './routes/similar-fixtures';
 
 // Load environment variables
 dotenv.config();
@@ -53,12 +58,17 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // API routes
 const apiVersion = process.env.API_VERSION || 'v1';
+app.use(`/api/${apiVersion}/auth`, authRouter);
 app.use(`/api/${apiVersion}/fixtures`, fixturesRouter);
 app.use(`/api/${apiVersion}/fixture-categories`, fixtureCategoriesRouter);
 app.use(`/api/${apiVersion}/vendors`, vendorsRouter);
+app.use(`/api/${apiVersion}/vendor-inventory`, vendorInventoryRouter);
 app.use(`/api/${apiVersion}/manufacturers`, manufacturersRouter);
 app.use(`/api/${apiVersion}/distributors`, distributorsRouter);
 app.use(`/api/${apiVersion}/search`, searchRouter);
+app.use(`/api/${apiVersion}/endorsement-issues`, endorsementIssuesRouter);
+app.use(`/api/${apiVersion}/tracking`, interactiveTrackingRouter);
+app.use(`/api/${apiVersion}/similar`, similarFixturesRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

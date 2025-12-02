@@ -41,20 +41,60 @@ export default function VendorMap({
     if (!mapRef.current || mapInstanceRef.current) return;
 
     // Dynamically import Leaflet
-    import('leaflet').then((L) => {
+    import('leaflet').then(async (L) => {
       const leaflet = L.default;
 
-      // Filter valid locations
-      const validLocations = locations
-        .map(loc => ({
-          ...loc,
-          latitude: typeof loc.latitude === 'string' ? parseFloat(loc.latitude) : loc.latitude,
-          longitude: typeof loc.longitude === 'string' ? parseFloat(loc.longitude) : loc.longitude
-        }))
-        .filter(
-          loc => loc.latitude && loc.longitude && 
-                 !isNaN(loc.latitude) && !isNaN(loc.longitude)
-        );
+      // Geocode addresses to get coordinates, with fallback to existing coords
+      const geocodeAddress = async (location: VendorLocation, index: number): Promise<VendorLocation & { latitude: number; longitude: number } | null> => {
+        // Check if we already have valid coordinates
+        const existingLat = typeof location.latitude === 'string' ? parseFloat(location.latitude) : location.latitude;
+        const existingLng = typeof location.longitude === 'string' ? parseFloat(location.longitude) : location.longitude;
+        
+        if (existingLat && existingLng && !isNaN(existingLat) && !isNaN(existingLng)) {
+          // Use existing coordinates
+          return {
+            ...location,
+            latitude: existingLat,
+            longitude: existingLng
+          };
+        }
+
+        // No valid coordinates, try geocoding
+        const address = `${location.address_line1}, ${location.city}, ${location.state_province}, ${location.country}`;
+        
+        // Add delay to respect rate limiting (1 request per second)
+        await new Promise(resolve => setTimeout(resolve, index * 1000));
+        
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+            {
+              headers: {
+                'User-Agent': 'RiderReady App'
+              }
+            }
+          );
+          const data = await response.json();
+          
+          if (data && data.length > 0) {
+            return {
+              ...location,
+              latitude: parseFloat(data[0].lat),
+              longitude: parseFloat(data[0].lon)
+            };
+          }
+        } catch (error) {
+          console.error('Geocoding error for', address, error);
+        }
+        return null;
+      };
+
+      // Geocode all locations with staggered requests
+      const geocodedLocations = await Promise.all(
+        locations.map((loc, index) => geocodeAddress(loc, index))
+      );
+
+      const validLocations = geocodedLocations.filter(loc => loc !== null) as (VendorLocation & { latitude: number; longitude: number })[];
 
       if (validLocations.length === 0) return;
 

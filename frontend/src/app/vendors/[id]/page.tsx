@@ -20,7 +20,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   AlertTriangle,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 
 // Dynamically import VendorMap to avoid SSR issues with Leaflet
@@ -41,6 +42,7 @@ export default function VendorDetailPage() {
   const slug = params.id as string;
   const queryClient = useQueryClient();
   const [sessionId, setSessionId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'equipment' | 'locations' | 'feedback'>('locations');
 
   // Generate or retrieve session ID
   useEffect(() => {
@@ -177,6 +179,86 @@ export default function VendorDetailPage() {
           </p>
         )}
 
+        {/* About Section */}
+        {vendor.about && (
+          <div className="bg-gray-50 dark:bg-dark-tertiary rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">About</h3>
+            <p className="text-gray-600 dark:text-gray-300 whitespace-pre-line">
+              {vendor.about}
+            </p>
+          </div>
+        )}
+
+        {/* Services */}
+        {vendor.services && vendor.services.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary-600" />
+              Services Offered
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {vendor.services.map((service: string) => (
+                <span 
+                  key={service}
+                  className="px-4 py-2 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-lg font-medium"
+                >
+                  {service}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Specialties */}
+        {vendor.specialties && vendor.specialties.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Specialties</h3>
+            <div className="flex flex-wrap gap-2">
+              {vendor.specialties.map((specialty: string) => (
+                <span 
+                  key={specialty}
+                  className="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium"
+                >
+                  {specialty}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Certifications */}
+        {vendor.certifications && vendor.certifications.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-green-600" />
+              Certifications & Credentials
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {vendor.certifications.map((cert: any, idx: number) => (
+                <div 
+                  key={idx}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-dark-tertiary"
+                >
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">{cert.name}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {cert.issuer}{cert.year ? ` • ${cert.year}` : ''}
+                      </p>
+                      {cert.description && (
+                        <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                          {cert.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Contact Information */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {(vendor.city || vendor.country) && (
@@ -241,38 +323,271 @@ export default function VendorDetailPage() {
           )}
         </div>
 
-        {/* Additional Info */}
-        {(vendor.established_year || vendor.service_radius_km) && (
-          <div className="flex gap-6 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            {vendor.established_year && (
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-gray-400" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Established {vendor.established_year}
-                </span>
+        {/* Company Details */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          {vendor.established_year && (
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Established</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.established_year}</p>
               </div>
-            )}
-            {vendor.service_radius_km && (
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-gray-400" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Service Radius: {vendor.service_radius_km} km
-                </span>
+            </div>
+          )}
+          {vendor.years_in_business && (
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Experience</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.years_in_business} years</p>
               </div>
+            </div>
+          )}
+          {vendor.team_size && (
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Team Size</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.team_size}</p>
+              </div>
+            </div>
+          )}
+          {vendor.response_time && (
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Response Time</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.response_time}</p>
+              </div>
+            </div>
+          )}
+          {vendor.service_radius_km && (
+            <div className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Service Radius</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.service_radius_km} km</p>
+              </div>
+            </div>
+          )}
+          {vendor.service_area && (
+            <div className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Service Area</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{vendor.service_area}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Hours of Operation */}
+        {vendor.hours_of_operation && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Hours of Operation</h3>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                const hours = vendor.hours_of_operation[day];
+                if (!hours) return null;
+                return (
+                  <div key={day} className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-dark-tertiary rounded">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white capitalize">{day}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{hours}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {vendor.hours_of_operation.notes && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 italic">
+                {vendor.hours_of_operation.notes}
+              </p>
             )}
+          </div>
+        )}
+
+        {/* Social Media */}
+        {vendor.social_media && Object.keys(vendor.social_media).length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Connect</h3>
+            <div className="flex flex-wrap gap-3">
+              {vendor.social_media.website && (
+                <a 
+                  href={vendor.social_media.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-dark-tertiary hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-sm font-medium">Website</span>
+                </a>
+              )}
+              {vendor.social_media.facebook && (
+                <a 
+                  href={vendor.social_media.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium">Facebook</span>
+                </a>
+              )}
+              {vendor.social_media.instagram && (
+                <a 
+                  href={vendor.social_media.instagram.startsWith('http') ? vendor.social_media.instagram : `https://instagram.com/${vendor.social_media.instagram.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-pink-100 dark:bg-pink-900/30 hover:bg-pink-200 dark:hover:bg-pink-900/50 text-pink-700 dark:text-pink-400 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium">Instagram</span>
+                </a>
+              )}
+              {vendor.social_media.linkedin && (
+                <a 
+                  href={vendor.social_media.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium">LinkedIn</span>
+                </a>
+              )}
+              {vendor.social_media.twitter && (
+                <a 
+                  href={vendor.social_media.twitter.startsWith('http') ? vendor.social_media.twitter : `https://twitter.com/${vendor.social_media.twitter.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-400 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium">Twitter</span>
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Multiple Locations */}
-      {vendor.locations && vendor.locations.length > 0 && (
-        <div className="bg-dark-secondary rounded-lg shadow-lg p-8 mb-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-primary-600" />
-            Locations ({vendor.locations.length})
-          </h2>
+      {/* Tabbed Content Section */}
+      <div className="bg-dark-secondary rounded-lg shadow-lg overflow-hidden">
+        {/* Tab Navigation */}
+        <div className="bg-dark-tertiary">
+          <div className="flex gap-1 px-1 pt-1">
+            <button
+              onClick={() => setActiveTab('locations')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-semibold transition-all ${
+                activeTab === 'locations'
+                  ? 'bg-dark-secondary text-white border-t-2 border-amber-500'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-dark-secondary/50'
+              }`}
+            >
+              <MapPin className="w-5 h-5" />
+              Locations
+              {vendor.locations && vendor.locations.length > 0 && (
+                <span className="px-2 py-0.5 bg-amber-500 text-black rounded-full text-xs font-bold">
+                  {vendor.locations.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('feedback')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-semibold transition-all ${
+                activeTab === 'feedback'
+                  ? 'bg-dark-secondary text-white border-t-2 border-amber-500'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-dark-secondary/50'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              Community Feedback
+              {endorsementsList && endorsementsList.length > 0 && (
+                <span className="px-2 py-0.5 bg-amber-500 text-black rounded-full text-xs font-bold">
+                  {endorsementsList.filter((e: any) => e.net_score !== 0).length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('equipment')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-semibold transition-all ${
+                activeTab === 'equipment'
+                  ? 'bg-dark-secondary text-white border-t-2 border-amber-500'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-dark-secondary/50'
+              }`}
+            >
+              <Package className="w-5 h-5" />
+              Available Equipment
+              {vendor.inventory && vendor.inventory.length > 0 && (
+                <span className="px-2 py-0.5 bg-amber-500 text-black rounded-full text-xs font-bold">
+                  {vendor.inventory.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
-          <div className="flex flex-col lg:flex-row gap-6">
+        {/* Tab Content */}
+        <div className="p-6">
+          {/* Equipment Tab */}
+          {activeTab === 'equipment' && (
+            <div>
+              {!vendor.inventory || vendor.inventory.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400 text-center py-8">
+                  No inventory information available
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {vendor.inventory.map((item: any) => (
+                    <div 
+                      key={item.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <Link
+                          href={`/fixtures/${item.fixture.slug}`}
+                          className="text-lg font-semibold text-gray-900 dark:text-white hover:text-primary-600"
+                        >
+                          {item.fixture.name}
+                        </Link>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {item.fixture.manufacturer.name}
+                        </p>
+                        {item.notes && (
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                            {item.notes}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-6 ml-4">
+                        {item.quantity && (
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Quantity</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {item.quantity}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          {item.available_for_rental && (
+                            <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
+                              Rental
+                            </span>
+                          )}
+                          {item.available_for_purchase && (
+                            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+                              Purchase
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Locations Tab */}
+          {activeTab === 'locations' && vendor.locations && vendor.locations.length > 0 && (
+            <div className="flex flex-col lg:flex-row gap-6">
             {/* Locations List - Left Side */}
             <div className="lg:w-96 flex-shrink-0 space-y-4 max-h-[600px] overflow-y-auto">
             {vendor.locations.map((location: any) => (
@@ -353,18 +668,12 @@ export default function VendorDetailPage() {
               />
             </div>
           </div>
-        </div>
-      )}
+          )}
 
-      {/* Endorsements */}
-      {endorsementsList && endorsementsList.length > 0 && (
-        <div className="bg-dark-secondary rounded-lg shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-amber-500" />
-            Community Feedback
-          </h2>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          {/* Feedback Tab */}
+          {activeTab === 'feedback' && endorsementsList && endorsementsList.length > 0 && (
+            <div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {endorsementsList
               .sort((a: any, b: any) => {
                 // Sort by net score (highest first)
@@ -477,76 +786,14 @@ export default function VendorDetailPage() {
               })}
           </div>
 
-          <div className="mt-4 p-3 bg-dark-tertiary rounded-lg border border-gray-800">
-            <p className="text-xs text-gray-400 text-center">
-              💡 Community endorsements reflect real-world experiences.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Inventory */}
-      <div className="bg-dark-secondary rounded-lg shadow-lg p-8">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-2">
-          <Package className="w-6 h-6 text-primary-600" />
-          Available Equipment
-        </h2>
-
-        {!vendor.inventory || vendor.inventory.length === 0 ? (
-          <p className="text-gray-600 dark:text-gray-400 text-center py-8">
-            No inventory information available
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {vendor.inventory.map((item: any) => (
-              <div 
-                key={item.id}
-                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 transition-colors"
-              >
-                <div className="flex-1">
-                  <Link
-                    href={`/fixtures/${item.fixture.slug}`}
-                    className="text-lg font-semibold text-gray-900 dark:text-white hover:text-primary-600"
-                  >
-                    {item.fixture.name}
-                  </Link>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {item.fixture.manufacturer.name}
-                  </p>
-                  {item.notes && (
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                      {item.notes}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-6 ml-4">
-                  {item.quantity && (
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Quantity</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white">
-                        {item.quantity}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    {item.available_for_rental && (
-                      <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
-                        Rental
-                      </span>
-                    )}
-                    {item.available_for_purchase && (
-                      <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
-                        Purchase
-                      </span>
-                    )}
-                  </div>
-                </div>
+              <div className="mt-4 p-3 bg-dark-tertiary rounded-lg border border-gray-800">
+                <p className="text-xs text-gray-400 text-center">
+                  💡 Community endorsements reflect real-world experiences.
+                </p>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

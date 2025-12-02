@@ -351,4 +351,64 @@ router.get('/:slug/endorsement-categories', async (req: Request, res: Response) 
   }
 });
 
+// PUT /:vendorId/profile - Update vendor profile information
+router.put('/:vendorId/profile', async (req: Request, res: Response) => {
+  try {
+    const { vendorId } = req.params;
+    const {
+      about,
+      services,
+      specialties,
+      certifications,
+      years_in_business,
+      team_size,
+      response_time,
+      service_area,
+      hours_of_operation,
+      social_media
+    } = req.body;
+
+    // TODO: Verify user has permission to edit this vendor profile
+    // For now, allow anyone with a session token
+
+    const updated = await db.one(`
+      UPDATE vendors
+      SET
+        about = COALESCE($1, about),
+        services = COALESCE($2, services),
+        specialties = COALESCE($3, specialties),
+        certifications = COALESCE($4, certifications),
+        years_in_business = COALESCE($5, years_in_business),
+        team_size = COALESCE($6, team_size),
+        response_time = COALESCE($7, response_time),
+        service_area = COALESCE($8, service_area),
+        hours_of_operation = COALESCE($9, hours_of_operation),
+        social_media = COALESCE($10, social_media),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $11
+      RETURNING *
+    `, [
+      about,
+      services,
+      specialties,
+      certifications ? JSON.stringify(certifications) : null,
+      years_in_business,
+      team_size,
+      response_time,
+      service_area,
+      hours_of_operation ? JSON.stringify(hours_of_operation) : null,
+      social_media ? JSON.stringify(social_media) : null,
+      vendorId
+    ]);
+
+    return res.json({
+      success: true,
+      vendor: updated
+    });
+  } catch (error) {
+    console.error('Error updating vendor profile:', error);
+    return res.status(500).json({ error: 'Failed to update vendor profile' });
+  }
+});
+
 export default router;
